@@ -53,6 +53,31 @@ let yuankey;
 var serverBound = {};
 var clientBound = {};
 
+function print_buf(buf, title, max_len) {
+    let bytes = [], len = buf.byteLength
+    console.log((title || 'untitled buffer') + ` (${buf.byteLength} bytes)`)
+    if (max_len < len) len = max_len
+    for (let i = 0; i < len; ++i) {
+        if (i && i % 16 == 0) {
+            console.log(bytes.join(' '))
+            bytes = []
+            // if (i / 16 == 10 && i + 1 < buf.byteLength) {
+            //     console.log('...')
+            //     return
+            // }
+        }
+        if (i % 16 == 4 || i % 16 == 8 || i % 16 == 12) {
+            bytes.push('')
+        }
+        bytes.push(buf.readUInt8(i).toString(16).toUpperCase().padStart(2, '0'))
+    }
+    if (bytes.length)
+        console.log(bytes.join(' '))
+    if (len < buf.byteLength) {
+        console.log(`... (${buf.byteLength - len} bytes omitted)`)
+    }
+}
+
 async function processMHYPacket(packet) {
     let {
         crypt,
@@ -110,6 +135,7 @@ async function processMHYPacket(packet) {
     }
 
     let kcpobj = KCPContextMap[peerID];
+    // print_buf(crypt, 'raw data', 8)
     kcpobj.input(await MHYbuf.reformatKcpPacket(crypt))
     var hrTime = process.hrtime();
     kcpobj.update(hrTime[0] * 1000000 + hrTime[1] / 1000);
@@ -127,8 +153,14 @@ async function processMHYPacket(packet) {
         MHYbuf.xorData(recv, keyBuffer);
 
         let packetID = recv.readUInt16BE(2);
+
+        // console.log('packet id:', packetID)
+        // let proto_buf = MHYbuf.parsePacketData(recv)
+        // console.log(`protobuf data (${proto_buf.byteLength} bytes):`)
+        // print_buf(proto_buf)
+
         if (packetID == PACKET_GetPlayerTokenRsp) {
-            var proto = await MHYbuf.dataToProtobuffer(MHYbuf.removeMagic(recv), "GetPlayerTokenRsp")
+            var proto = await MHYbuf.dataToProtobuffer(MHYbuf.parsePacketData(recv), "GetPlayerTokenRsp")
             log.debug(proto.secretKeySeed.toString())
             let initgen = new MT19937_64();
             initgen.seed(BigInt(proto.secretKeySeed));
@@ -141,6 +173,7 @@ async function processMHYPacket(packet) {
                 key.writeBigUInt64BE(val, i)
             }
             yuankey = key;
+            // print_buf(yuankey, 'override key', 32)
         }
         packets.push(recv);
     } while (recv);
@@ -158,7 +191,7 @@ function getInfoCharacter(packetName, dir) {
 }
 
 function logPacket(packetSource, packetID, protoName, o, union, last) {
-    // return;
+    return;
     let s = '';
     if (union)
         if (last)
