@@ -45,6 +45,7 @@ let unknownPackets = 0,
     packetOrderCount = 0;
 let MHYKeys = require('../data/MHYkeys.json');
 const config = require('../config');
+const { hrtime } = require('process');
 for (let key in MHYKeys) {
     MHYKeys[key] = Buffer.from(MHYKeys[key], 'base64');
 }
@@ -52,6 +53,23 @@ let initialKey;
 let yuankey;
 var serverBound = {};
 var clientBound = {};
+
+function print_buf_(buf) {
+    let bytes = [], len = buf.byteLength
+    for (let i = 0; i < len; ++i) {
+        if (i && i % 16 == 0) {
+            console.log(bytes.join(' '))
+            bytes = []
+        }
+        if (i % 16 == 4 || i % 16 == 8 || i % 16 == 12) {
+            bytes.push('')
+        }
+        bytes.push(buf.readUInt8(i).toString(16).toUpperCase().padStart(2, '0'))
+    }
+    if (bytes.length)
+        console.log(bytes.join(' '))
+
+}
 
 function print_buf(buf, title, max_len) {
     let bytes = [], len = buf.byteLength
@@ -150,6 +168,7 @@ async function processMHYPacket(packet) {
             initialKey = MHYKeys[recv.readUInt16BE(0) ^ 0x4567];
         }
         let keyBuffer = overrideKey || yuankey || initialKey;
+        // let temp = recv.slice()
         MHYbuf.xorData(recv, keyBuffer);
 
         let packetID = recv.readUInt16BE(2);
@@ -158,6 +177,43 @@ async function processMHYPacket(packet) {
         // let proto_buf = MHYbuf.parsePacketData(recv)
         // console.log(`protobuf data (${proto_buf.byteLength} bytes):`)
         // print_buf(proto_buf)
+        if (packetID == 4061) {
+            // let proto_buf = MHYbuf.parsePacketData(recv)
+            // let proto = await MHYbuf.dataToProtobuffer(proto_buf, "GetFriendShowAvatarInfoReq")
+            // let uid = proto.uid
+            // let time = String(Math.floor(hrTime[1] / 1000)).padStart(6, '0')
+            // console.log('uid:', uid)
+            // print_buf(crypt, "4061 raw")
+            // fs.writeFileSync(`4061-raw-${uid}-${time}.bin`, crypt)
+            // print_buf(recv, "4061 recv")
+            // fs.writeFileSync(`4061-recv-${uid}-${time}.bin`, recv)
+            // print_buf(proto_buf, "4061 proto")
+            // fs.writeFileSync(`4061-proto-${uid}-${time}.bin`, proto_buf)
+        } else {
+            // print_buf(recv, `${packetID} recv`)
+        }
+        // console.log(`${packetID} recv (${recv.byteLength} bytes)`)
+        let head_len = recv.readInt8(5)
+        // print_buf_(recv.slice(0, 10))
+        let line = []
+        if (packetSource == DIR_CLIENT) {
+            line.push('client')
+        } else {
+            line.push('server')
+        }
+        line.push(packetID)
+        for (let i = 10; i < 10 + head_len; ++i) {
+            if (i == 12) {
+                for (let j = 0; j < 12 - head_len; ++j) {
+                    line.push('')
+                }
+            }
+            line.push(recv.readUInt8(i).toString(16).toUpperCase().padStart(2, '0'))
+        }
+        console.log(line.join(','))
+        // print_buf_(recv.slice(10, 10 + head_len))
+        // print_buf_(recv.slice(10 + head_len, recv.byteLength - 2))
+        // print_buf_(recv.slice(recv.byteLength - 2))
 
         if (packetID == PACKET_GetPlayerTokenRsp) {
             var proto = await MHYbuf.dataToProtobuffer(MHYbuf.parsePacketData(recv), "GetPlayerTokenRsp")
@@ -269,8 +325,8 @@ function queuePacket(packet) {
 }
 
 
-var proxyIP = '47.90.135.110';
-var proxyPort = 22102;
+var proxyIP = '47.103.31.140';
+var proxyPort = 22101;
 async function execute() {
     async function loop() {
         if (!packetQueueSize) return setTimeout(loop, 32);

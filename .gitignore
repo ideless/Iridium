@@ -114,3 +114,6 @@ captures
 
 # Bins -> just a thing i did to dump some things
 Bins/
+
+test/pcap
+test/out*

@@ -16,6 +16,8 @@ module.exports = {
         "MonsterAIConfigHashNotify",
         "EntityAiSyncNotify",
         "EvtAiSyncSkillCdNotify",
+        "PlayerSetPauseRsp",
+        "PlayerSetPauseReq",
         // //currently broken packets
 
         "TakeAchievementRewardRsp",
